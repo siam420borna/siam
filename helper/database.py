@@ -1,22 +1,27 @@
-# helper/database.py
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import Config
 
 client = AsyncIOMotorClient(Config.MONGODB_URL)
-db = client["video_bot"]
-settings_col = db["user_settings"]
+db = client.videobot
+settings_col = db.settings
 
-async def get_settings(user_id: int) -> dict:
-    user = await settings_col.find_one({"user_id": user_id})
-    if not user:
-        default = Config.DEFAULT_SETTINGS.copy()
-        default["user_id"] = user_id
-        await settings_col.insert_one(default)
-        return Config.DEFAULT_SETTINGS.copy()
-    return user
+def default_settings():
+    return {
+        "watermark": False,
+        "screenshots": False,
+        "demo_clip": False,
+        "sprite": False,
+        "thumbnail_override": False
+    }
 
-async def toggle_setting(user_id: int, key: str) -> bool:
-    user = await get_settings(user_id)
-    new_value = not user.get(key, True)
-    await settings_col.update_one({"user_id": user_id}, {"$set": {key: new_value}})
-    return new_value
+async def get_user_settings(user_id):
+    data = await settings_col.find_one({"user_id": user_id})
+    if not data:
+        await settings_col.insert_one({"user_id": user_id, **default_settings()})
+        return default_settings()
+    return {k: data.get(k, False) for k in default_settings().keys()}
+
+async def toggle_user_setting(user_id, setting):
+    current = await get_user_settings(user_id)
+    new_value = not current.get(setting, False)
+    await settings_col.update_one({"user_id": user_id}, {"$set": {setting: new_value}}, upsert=True)
