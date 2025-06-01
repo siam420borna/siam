@@ -1,13 +1,8 @@
-from pyrogram import filters
+from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.handlers import MessageHandler
 
-async def start(_, message: Message):
+@Client.on_message(filters.command("start"))
+async def start_handler(_, message: Message):
     await message.reply_text(
-        "👋 Welcome to the Universal Video Downloader Bot!\n\n"
-        "Just send me any video or audio link (YouTube, Facebook, Twitter, Mega.nz, etc.)\n"
-        "I'll show you all available formats to download.\n\n"
-        "Use /settings to customize features like watermark, screenshot, and more."
+        "👋 Welcome! Send any video/audio/social media link to begin downloading.\nUse /settings to customize your experience."
     )
-
-start_handler = MessageHandler(start, filters.command("start"))
