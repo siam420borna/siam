@@ -1,0 +1,7 @@
+pyrogram
+tgcrypto
+yt-dlp
+pillow
+ffmpeg-python
+motor
+aiohttp
