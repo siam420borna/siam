@@ -1,45 +1,27 @@
-# helper/ffmpeg_tools.py
+from motor.motor_asyncio import AsyncIOMotorClient
+from config import Config
 
-import os
-import subprocess
-import uuid
+client = AsyncIOMotorClient(Config.MONGODB_URL)
+db = client.videobot
+settings_col = db.settings
 
-TEMP_DIR = "/tmp/video_bot"
-os.makedirs(TEMP_DIR, exist_ok=True)
+def default_settings():
+    return {
+        "watermark": False,
+        "screenshots": False,
+        "demo_clip": False,
+        "sprite": False,
+        "thumbnail_override": False
+    }
 
-def generate_screenshot(video_path: str, timestamp: str = "00:00:03") -> str:
-    output_path = os.path.join(TEMP_DIR, f"screenshot_{uuid.uuid4().hex}.jpg")
-    command = [
-        "ffmpeg", "-ss", timestamp, "-i", video_path,
-        "-frames:v", "1", "-q:v", "2", output_path
-    ]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return output_path if os.path.exists(output_path) else None
+async def get_user_settings(user_id):
+    data = await settings_col.find_one({"user_id": user_id})
+    if not data:
+        await settings_col.insert_one({"user_id": user_id, **default_settings()})
+        return default_settings()
+    return {k: data.get(k, False) for k in default_settings().keys()}
 
-def add_watermark(video_path: str, watermark_path: str) -> str:
-    output_path = os.path.join(TEMP_DIR, f"wm_{uuid.uuid4().hex}.mp4")
-    command = [
-        "ffmpeg", "-i", video_path, "-i", watermark_path,
-        "-filter_complex", "overlay=10:10", "-c:a", "copy", output_path
-    ]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return output_path if os.path.exists(output_path) else None
-
-def create_demo_clip(video_path: str, duration: int = 15) -> str:
-    output_path = os.path.join(TEMP_DIR, f"demo_{uuid.uuid4().hex}.mp4")
-    command = [
-        "ffmpeg", "-ss", "00:00:00", "-i", video_path,
-        "-t", str(duration), "-c:v", "libx264", "-c:a", "aac", output_path
-    ]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return output_path if os.path.exists(output_path) else None
-
-def generate_sprite(video_path: str) -> str:
-    output_path = os.path.join(TEMP_DIR, f"sprite_{uuid.uuid4().hex}.jpg")
-    command = [
-        "ffmpeg", "-i", video_path,
-        "-vf", "select='not(mod(n\\,50))',scale=160:-1,tile=5x5",
-        "-frames:v", "1", output_path
-    ]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return output_path if os.path.exists(output_path) else None
+async def toggle_user_setting(user_id, setting):
+    current = await get_user_settings(user_id)
+    new_value = not current.get(setting, False)
+    await settings_col.update_one({"user_id": user_id}, {"$set": {setting: new_value}}, upsert=True)
