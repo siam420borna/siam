@@ -1,24 +1,19 @@
-# helper/yt_utils.py
-
 import yt_dlp
+import asyncio
 
-async def extract_formats(url: str):
-    """
-    Extract video/audio formats and metadata from a given URL using yt-dlp.
-    Returns a dictionary containing formats, title, thumbnail, duration, etc.
-    """
+async def extract_info(url):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _extract(url))
+
+def _extract(url):
     ydl_opts = {
         'quiet': True,
-        'no_warnings': True,
-        'skip_download': True,
         'format': 'bestvideo+bestaudio/best',
-        'forcejson': True,
-        'simulate': True,
+        'noplaylist': True,
     }
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-            return info
-        except Exception as e:
-            return {"error": str(e)}
+        info = ydl.extract_info(url, download=False)
+        for f in info.get("formats", []):
+            if f.get("filesize"):
+                f["filesize_mb"] = round(f["filesize"] / 1024 / 1024, 2)
+        return info
