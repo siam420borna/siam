@@ -1,7 +1,8 @@
-import asyncio
-from pyrogram import Client, filters
+from pyrogram import Client, idle
 from config import Config
-from plugins import start, settings
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = Client(
     "video_downloader_bot",
@@ -10,9 +11,8 @@ app = Client(
     bot_token=Config.BOT_TOKEN
 )
 
-app.add_handler(start.start_handler)
-app.add_handler(settings.settings_handler)
-
 if __name__ == "__main__":
-    print("Bot started...")
+    from plugins import start, downloader, settings
+    logging.info("Bot Started")
     app.run()
+    idle()
